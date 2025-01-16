@@ -11,11 +11,27 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-const mongoURI = process.env.MONGODB_URI || "mongodb://localhost:27017/airport_survey";
-mongoose
-  .connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+const mongoURI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/airport_survey";
+
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(mongoURI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    });
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
+  } catch (error) {
+    console.error('MongoDB connection error details:', {
+      error: error.message,
+      uri: mongoURI.replace(/mongodb\+srv:\/\/([^:]+):([^@]+)@/, 'mongodb+srv://***:***@'), // Hide credentials in logs
+      name: error.name,
+      code: error.code
+    });
+    process.exit(1);
+  }
+};
 
 // Feedback Schema
 const feedbackSchema = new mongoose.Schema({
@@ -62,7 +78,17 @@ app.get("/api/feedback", async (req, res) => {
   }
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Ensure MongoDB is connected before starting the server
+const startServer = async () => {
+  try {
+    await connectDB();
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+};
+
+startServer();
